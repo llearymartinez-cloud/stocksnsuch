@@ -60,7 +60,7 @@ def snp500pred(stocks, number):
         explanatory_stocks = daily_difference_of_logs.get(best_explanatory)
         remaining_stocks = daily_difference_of_logs.drop(best_explanatory, axis = 1, inplace = False)
 
-        best_r2 = 1000000000000000
+        best_r2 = -1
         best_beta = 0
         best_stock = ""
 
@@ -71,7 +71,7 @@ def snp500pred(stocks, number):
             
             r2 = sklearn.metrics.r2_score(daily_difference_of_logs_snp, reg.predict(explanatory_stocks.append(stock)))
 
-            if r2 < best_r2:
+            if r2 > best_r2:
                 best_r2 = r2
                 best_beta = reg.coef_
                 best_stock = stock

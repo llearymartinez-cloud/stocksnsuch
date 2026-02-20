@@ -1,51 +1,7 @@
 import pandas as pd
-import csv
-import os
 import sklearn
 import yfinance
 import numpy as np
-
-# data = np.genfromtxt('snpNumbers.txt', delimiter = ',')
-
-# first = data[0]
-# second = data[1]
-
-# firstLogDifference = np.log(first[1:]) - np.log(first[:-1])
-# secondLogDifference = np.log(second[1:]) - np.log(second[:-1])
-
-
-# reg = sklearn.linear_model.LinearRegression()
-# reg.fit(firstLogDifference.reshape(-1, 1), secondLogDifference)
-# print(reg.coef_)
-# print(reg.intercept_)
-# print(sklearn.metrics.r2_score(secondLogDifference, reg.predict(firstLogDifference.reshape(-1,1))))
-
-# raw_data = yfinance.download(tickers = "^GSPC", start = "2025-10-1", 
-#                               end = "2025-11-1", interval = "1d")
-# print(raw_data)
-
-raw_data2 = yfinance.download('MO GOOGL', start = "2016-1-1", 
-                              end = "2026-1-1", interval = "1d").get('High')
-bruh = (raw_data2.shift(-1).apply(np.log) - raw_data2.shift(1).apply(np.log))[1:-1]
-
-
-#print(pd.concat([raw_data2.get('MO'), raw_data2.get('GOOGL')], axis = 1))
-
-# print(raw_data2.axes)
-# print(raw_data2.get('High').columns)
-
-# raw_data2 = raw_data2.get('High')
-# print(raw_data2.get([]))
-# print(raw_data2.drop(["ZBRA", "MO"], axis = 1, inplace= False))
-# print(raw_data2)
-# print(np.array(raw_data))
-# with open('snp500new.txt', 'r') as bruh:
-#     stocks = [line.strip().upper() for line in bruh]
-#     stocks.append('^GSPC')
-
-# bruh = yfinance.download(tickers=stocks, start = "2016-1-1", end = "2026-1-1", interval = "1d")
-
-# print(bruh.axes)
 
 def snp500pred(stocks, number):
     
@@ -89,6 +45,3 @@ def snp500pred(stocks, number):
         explanatory_betas.append(best_beta)
 
     return [best_explanatory, explanatory_betas]
-        
-
-print(snp500pred(["GOOGL", "MO", "MMM"], 2))

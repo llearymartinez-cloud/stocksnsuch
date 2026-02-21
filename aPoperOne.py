@@ -3,45 +3,45 @@ import sklearn
 import yfinance
 import numpy as np
 
-def snp500pred(stocks, number):
+def snp500pred(stocks, target, number):
     
-    raw_data = yfinance.download(stocks, start = "2016-1-1", end = "2026-1-1", interval = "1d").get('High')
-    daily_difference_of_logs = (raw_data.shift(-1).apply(np.log) - raw_data.shift(1).apply(np.log))[1:-1]
+    try:
+        stocks.remove(target)
+    except ValueError:
+        pass
+
+    raw_stock_data = yfinance.download(stocks, start = "2016-1-1", end = "2026-1-1", interval = "1d").get('High')
+    daily_difference_of_logs = (raw_stock_data.shift(-1).apply(np.log) - raw_stock_data.shift(1).apply(np.log))[1:-1]
     
-    snp = yfinance.download('^GSPC', start = "2016-1-1", end = "2026-1-1", interval = "1d").get('High')
-    daily_difference_of_logs_snp = (snp.shift(-1).apply(np.log) - snp.shift(1).apply(np.log))[1:-1]
+    raw_target_data = yfinance.download(target, start = "2016-1-1", end = "2026-1-1", interval = "1d").get('High')
+    target_daily_difference_of_logs = (raw_target_data.shift(-1).apply(np.log) - raw_target_data.shift(1).apply(np.log))[1:-1]
     
-    best_explanatory = []
+    best_explanatory = pd.DataFrame()
     explanatory_betas = []
 
     for n in range(number):
-        print(n)
-        print(best_explanatory)
-        explanatory_stocks = daily_difference_of_logs.get(best_explanatory)
-        remaining_stocks = daily_difference_of_logs.copy()
-        if (n != 0):
-            remaining_stocks = remaining_stocks.drop(best_explanatory, axis = 1, inplace = False)
 
         best_r2 = -1
         best_beta = 0
         best_stock = ""
 
-        for stock in remaining_stocks.columns:
-            
-            stock_data = remaining_stocks.get(stock)
+        for stock_ in daily_difference_of_logs:
+            stock = daily_difference_of_logs.get(stock_)
 
             reg = sklearn.linear_model.LinearRegression()
-            reg.fit(pd.concat([explanatory_stocks, stock_data], axis = 1), daily_difference_of_logs_snp)
+            reg.fit(pd.concat([best_explanatory, stock], axis = 1), target_daily_difference_of_logs)
             
-            r2 = sklearn.metrics.r2_score(daily_difference_of_logs_snp, reg.predict(pd.concat([explanatory_stocks, stock_data], axis = 1)))
+            r2 = sklearn.metrics.r2_score(target_daily_difference_of_logs, reg.predict(pd.concat([best_explanatory, stock], axis = 1)))
 
             if r2 > best_r2:
                 best_r2 = r2
                 best_beta = reg.coef_
-                best_stock = stock
-        print(best_beta)
-        print(best_stock)
-        best_explanatory.append(best_stock)
-        explanatory_betas.append(best_beta)
+                best_stock = stock_
 
-    return [best_explanatory, explanatory_betas]
+        best_explanatory = pd.concat([best_explanatory, daily_difference_of_logs.get(best_stock)], axis = 1)
+        explanatory_betas.append(best_beta)
+        daily_difference_of_logs.drop(best_stock, axis = 1)
+
+    return [best_explanatory.columns.to_list(), explanatory_betas]
+
+print(snp500pred(["GOOGL", "MO", "MMM"], "^GSPC", 2))

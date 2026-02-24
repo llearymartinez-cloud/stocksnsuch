@@ -3,6 +3,13 @@ import sklearn
 import yfinance
 import numpy as np
 
+# with open('snp500new.txt', 'r') as stock_names_txt:
+#     stock_names = [line.strip().upper() for line in stock_names_txt]
+# raw_stock_data = yfinance.download(stock_names, start = "2016-1-1", end = "2026-1-1", interval = "1d").get('High')
+# raw_stock_data.to_csv("out.csv")
+
+complete_stocks = pd.read_csv("out.csv").set_index("Date")
+
 def snp500pred(stocks, target, number):
     
     try:
@@ -10,7 +17,7 @@ def snp500pred(stocks, target, number):
     except ValueError:
         pass
 
-    raw_stock_data = yfinance.download(stocks, start = "2016-1-1", end = "2026-1-1", interval = "1d").get('High')
+    raw_stock_data = complete_stocks.get(stocks)
     daily_difference_of_logs = (raw_stock_data.shift(-1).apply(np.log) - raw_stock_data.shift(1).apply(np.log))[1:-1]
     
     raw_target_data = yfinance.download(target, start = "2016-1-1", end = "2026-1-1", interval = "1d").get('High')
@@ -44,4 +51,4 @@ def snp500pred(stocks, target, number):
 
     return [best_explanatory.columns.to_list(), explanatory_betas]
 
-print(snp500pred(["GOOGL", "MO", "MMM"], "^GSPC", 2))
+#print(snp500pred(["GOOGL", "MO", "MMM"], "^GSPC", 2))

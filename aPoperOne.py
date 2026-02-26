@@ -26,13 +26,18 @@ def snp500pred(stocks, target, number):
     best_explanatory = pd.DataFrame()
     explanatory_betas = []
 
+    final_r2 = 0
+
     for n in range(number):
+
+        print(n)
 
         best_r2 = -1
         best_beta = 0
         best_stock = ""
 
         for stock_ in daily_difference_of_logs:
+
             stock = daily_difference_of_logs.get(stock_)
 
             reg = sklearn.linear_model.LinearRegression()
@@ -44,11 +49,12 @@ def snp500pred(stocks, target, number):
                 best_r2 = r2
                 best_beta = reg.coef_
                 best_stock = stock_
+                final_r2 = r2
 
         best_explanatory = pd.concat([best_explanatory, daily_difference_of_logs.get(best_stock)], axis = 1)
         explanatory_betas.append(best_beta)
         daily_difference_of_logs.drop(best_stock, axis = 1)
 
-    return [best_explanatory.columns.to_list(), explanatory_betas]
+    return [best_explanatory.columns.to_list(), explanatory_betas[-1], final_r2]
 
-#print(snp500pred(["GOOGL", "MO", "MMM"], "^GSPC", 2))
+print(snp500pred(complete_stocks.columns.tolist(), "^GSPC", 20))

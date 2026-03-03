@@ -57,4 +57,4 @@ def snp500pred(stocks, target, number):
 
     return [best_explanatory.columns.to_list(), explanatory_betas[-1], final_r2]
 
-print(snp500pred(complete_stocks.columns.tolist(), "^GSPC", 20))
+print(snp500pred(complete_stocks.columns.tolist(), "^GSPC", 2))

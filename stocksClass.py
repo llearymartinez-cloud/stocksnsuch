@@ -34,8 +34,6 @@ class indexPredictor:
         best_explanatory = pd.DataFrame()
         explanatory_betas = []
 
-        final_r2 = 0
-
         for n in range(number):
 
             print(n)
@@ -48,7 +46,7 @@ class indexPredictor:
 
                 stock = stock_diff_logs.get(stock_)
 
-                reg = sklearn.linear_model.LinearRegression()
+                reg = sklearn.linear_model.LinearRegression(fit_intercept = False)
                 reg.fit(pd.concat([best_explanatory, stock], axis = 1), index_diff_logs)
                 
                 r2 = sklearn.metrics.r2_score(index_diff_logs, reg.predict(pd.concat([best_explanatory, stock], axis = 1)))
@@ -57,7 +55,6 @@ class indexPredictor:
                     best_r2 = r2
                     best_beta = reg.coef_
                     best_stock = stock_
-                    final_r2 = r2
 
             best_explanatory = pd.concat([best_explanatory, stock_diff_logs.get(best_stock)], axis = 1)
             explanatory_betas = best_beta
@@ -65,19 +62,18 @@ class indexPredictor:
 
         return self.indexPredictorModel(index, best_explanatory, explanatory_betas, interval)
     
-    def modelQualityOfFit(self, model, interval = None):\
-    #need to account for the model interval
-        stock_raw_data = self._stockData.get(model.stocks)
-        stock_diff_logs = (stock_raw_data.shift(-1).apply(np.log) - stock_raw_data.shift(1).apply(np.log))[1:-1]
-        
-        index_raw_data = self._indexData.get(model.index)
-        index_diff_logs = (index_raw_data.shift(-1).apply(np.log) - index_raw_data.shift(1).apply(np.log))[1:-1]
-        
+    def modelQualityOfFit(self, model, interval = None):
+
+        new_model = sklearn.linear_model.LinearRegression()
+        new_model.intercept = 0
+        new_model.coef_ = model.explanatoryBetas
+
         if (interval != None):
-            stock_diff_logs = stock_diff_logs.loc[interval]
-            index_diff_logs = index_diff_logs.loc[interval]
+            index_interval = self._indexData.loc(interval)
+            stock_interval = self._stockData.loc(interval)
 
-        reg = sklearn.linear_model.LinearRegression()
-        reg.fit(stock_diff_logs, index_diff_logs)
-
+            return sklearn.metrics.r2_score(index_interval.get(model.index), new_model.predict(stock_interval.get(model.explanatoryStocks)))
+    
+        return sklearn.metrics.r2_score(self._indexData.get(model.index), new_model.predict(self._stockData.get(model.explanatoryStocks)))
+    
 

@@ -2,6 +2,7 @@ import pandas as pd
 import sklearn
 import yfinance
 import numpy as np
+import matplotlib.pyplot as plt
 
 complete_stocks = pd.read_csv("out.csv").set_index("Date")
 
@@ -16,11 +17,7 @@ class indexPredictor:
             self.interval = interval
 
         def mToString(self):
-            print(type(self.index))
-            print(type(self.explanatoryStocks))
-            print(type(self.explanatoryBetas))
-            print(type(self.interval))
-            print("Index: " + self.index + "\nExplanatory stocks: " + " ".join(self.explanatoryStocks.to_list()) +
+            return ("Index: " + self.index + "\nExplanatory stocks: " + " ".join(self.explanatoryStocks.to_list()) +
                    "\nExplanatory betas: " + np.array2string(self.explanatoryBetas))
 
     #Note: Stocks will include indexes such as S&P. stockIndexData is entirely static, only ever read
@@ -80,34 +77,60 @@ class indexPredictor:
 
         return self.indexPredictorModel(index, best_explanatory.columns, explanatory_betas, interval)
     
-    def modelQualityOfFit(self, model, interval = None):
+    # def modelQualityOfFit(self, model, interval = None):
 
-        new_model = sklearn.linear_model.LinearRegression()
-        new_model.intercept_ = 0
-        new_model.coef_ = model.explanatoryBetas
+    #     new_model = sklearn.linear_model.LinearRegression()
+    #     new_model.intercept_ = 0
+    #     new_model.coef_ = model.explanatoryBetas
         
-        index_raw_data = self._indexData.get(model.index)
-        index_diff_logs = (index_raw_data.shift(-1).apply(np.log) - index_raw_data.shift(1).apply(np.log))[1:-1]
+    #     index_raw_data = self._indexData.get(model.index)
+    #     index_diff_logs = (index_raw_data.shift(-1).apply(np.log) - index_raw_data.shift(1).apply(np.log))[1:-1]
 
-        # if (interval != None):
-        #     index_interval = self._indexData.loc(interval)
-        #     stock_interval = self._stockData.loc(interval)
+    #     # if (interval != None):
+    #     #     index_interval = self._indexData.loc(interval)
+    #     #     stock_interval = self._stockData.loc(interval)
 
-        #     return sklearn.metrics.r2_score(index_diff_logs, new_model.predict(stock_interval.get(model.explanatoryStocks)))
+    #     #     return sklearn.metrics.r2_score(index_diff_logs, new_model.predict(stock_interval.get(model.explanatoryStocks)))
     
-        return sklearn.metrics.r2_score(index_diff_logs, new_model.predict(self._stockData.get(model.explanatoryStocks)))
+    #     return sklearn.metrics.r2_score(index_diff_logs, new_model.predict(self._stockData.get(model.explanatoryStocks)))
     
-    def purchaseStocks(self, model, date, moneySpent):
+    # def purchaseStocks(self, model, date, moneySpent):
+
+    #     stock_raw_data = self._stockData.get(model.explanatoryStocks)
+
+    #     stock_value = stock_raw_data.get(date)
+
+    #     ratios = np.linalg.norm (model.explanatoryBetas) * moneySpent
+
+    #     return stock_value * ratios
+
+    def graphExample(self, model):
 
         stock_raw_data = self._stockData.get(model.explanatoryStocks)
+        ratios = model.explanatoryBetas/np.sum(model.explanatoryBetas)
+        num_purchased = (1000*ratios)/stock_raw_data.head(1)
 
-        stock_value = stock_raw_data.get(date)
+        index_raw_data = self._indexData.get(model.index)
+        index_num_purchased = 1000/index_raw_data.head(1)
 
-        ratios = np.linalg.norm (model.explanatoryBetas) * moneySpent
 
-        return stock_value * ratios
+
+        print(index_raw_data)
+        print(index_num_purchased)
+
+        print(stock_raw_data)
+        print(num_purchased)
+        print(stock_raw_data*num_purchased.to_numpy())
+        print((stock_raw_data*num_purchased.to_numpy()).sum(axis=1))
+
+        print((index_raw_data*index_num_purchased.to_numpy()).rename("SnP"))
+        print(pd.merge(((stock_raw_data*num_purchased.to_numpy()).sum(axis=1)).rename("Stocks"), (index_raw_data*index_num_purchased.to_numpy()).rename("SnP"), on=["Date"]))
+        # (stock_raw_data*num_purchased.to_numpy()).sum(axis=1).plot()
+
+        # plt.show()
+
 
 temp = indexPredictor(0,0, tester=True)
 bruh = temp.buildIndexPredictor("^GSPC",0,3,allStocks=True)
 print(bruh.mToString())
-print(temp.modelQualityOfFit(bruh))
+print(temp.graphExample(bruh))

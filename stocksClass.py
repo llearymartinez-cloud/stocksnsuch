@@ -2,7 +2,7 @@ import pandas as pd
 import sklearn
 import yfinance
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 complete_stocks = pd.read_csv("out.csv").set_index("Date")
 

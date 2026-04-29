@@ -3,8 +3,13 @@ import sklearn
 import yfinance
 import numpy as np
 # import matplotlib.pyplot as plt
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+import patsy
+print(patsy.__version__)
 
 complete_stocks = pd.read_csv("out.csv").set_index("Date")
+complete_stocks.index = pd.to_datetime(complete_stocks.index)
 
 class indexPredictor:
 
@@ -62,6 +67,9 @@ class indexPredictor:
                 stock = stock_diff_logs.get(stock_)
 
                 reg = sklearn.linear_model.LinearRegression(fit_intercept = False)
+                if(n == 1):
+                    print(best_explanatory)
+                    print(stock)
                 reg.fit(pd.concat([best_explanatory, stock], axis = 1), index_diff_logs)
                 
                 r2 = sklearn.metrics.r2_score(index_diff_logs, reg.predict(pd.concat([best_explanatory, stock], axis = 1)))
@@ -76,7 +84,61 @@ class indexPredictor:
             stock_diff_logs.drop(best_stock, axis = 1)
 
         return self.indexPredictorModel(index, best_explanatory.columns, explanatory_betas, interval)
-    
+
+    def buildConstrainedPredictor(self, index, stocks, number, interval = None, allStocks = False):
+
+        if (allStocks):
+            stock_raw_data = self._stockData
+        else:
+            stock_raw_data = self._stockData.get(stocks)
+        stock_diff_logs = (stock_raw_data.shift(-1).apply(np.log) - stock_raw_data.shift(1).apply(np.log))[1:-1]
+        
+        index_raw_data = self._indexData.get(index)
+        index_diff_logs = (index_raw_data.shift(-1).apply(np.log) - index_raw_data.shift(1).apply(np.log))[1:-1]
+        #index_diff_logs.name = "GSPC"
+        
+        if (interval != None):
+            stock_diff_logs = stock_diff_logs.loc[interval]
+            index_diff_logs = index_diff_logs.loc[interval]
+
+        best_explanatory = pd.DataFrame()
+        explanatory_betas = []
+
+        for n in range(number):
+
+            print(n)
+
+            best_r2 = -1
+            best_beta = 0
+            best_stock = ""
+
+            for stock_ in stock_diff_logs:
+
+                stock = stock_diff_logs.get(stock_)
+
+                bruuuh = pd.concat([index_diff_logs, stock], axis = 1)
+                print(bruuuh)
+                # reg = sklearn.linear_model.LinearRegression(fit_intercept = False)
+                # reg.fit(pd.concat([best_explanatory, stock], axis = 1), index_diff_logs)
+                print(index + ' ~ ' + stock.name)
+                print(type(index))
+                reg_constrained = smf.glm(formula = index + ' ~ ' + stock.name, data = bruuuh, family = sm.families.Gaussian()).fit_constrained(stock.name + " = 1")
+                print(reg_constrained.summary())
+
+
+                # r2 = sklearn.metrics.r2_score(index_diff_logs, reg.predict(pd.concat([best_explanatory, stock], axis = 1)))
+
+                if r2 > best_r2:
+                    best_r2 = r2
+                    best_beta = reg.coef_
+                    best_stock = stock_
+
+            best_explanatory = pd.concat([best_explanatory, stock_diff_logs.get(best_stock)], axis = 1)
+            explanatory_betas = best_beta
+            stock_diff_logs.drop(best_stock, axis = 1)
+
+        return self.indexPredictorModel(index, best_explanatory.columns, explanatory_betas, interval)
+
     # def modelQualityOfFit(self, model, interval = None):
 
     #     new_model = sklearn.linear_model.LinearRegression()
@@ -131,6 +193,5 @@ class indexPredictor:
 
 
 temp = indexPredictor(0,0, tester=True)
-bruh = temp.buildIndexPredictor("^GSPC",0,3,allStocks=True)
+bruh = temp.buildConstrainedPredictor("^GSPC",0,3,allStocks=True)
 print(bruh.mToString())
-print(temp.graphExample(bruh))

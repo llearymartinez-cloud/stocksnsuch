@@ -95,7 +95,7 @@ class indexPredictor:
         
         index_raw_data = self._indexData.get(index)
         index_diff_logs = (index_raw_data.shift(-1).apply(np.log) - index_raw_data.shift(1).apply(np.log))[1:-1]
-        #index_diff_logs.name = "GSPC"
+        index_diff_logs.name = "GSPC"
         
         if (interval != None):
             stock_diff_logs = stock_diff_logs.loc[interval]
@@ -122,7 +122,7 @@ class indexPredictor:
                 # reg.fit(pd.concat([best_explanatory, stock], axis = 1), index_diff_logs)
                 print(index + ' ~ ' + stock.name)
                 print(type(index))
-                reg_constrained = smf.glm(formula = index + ' ~ ' + stock.name, data = bruuuh, family = sm.families.Gaussian()).fit_constrained(stock.name + " = 1")
+                reg_constrained = smf.glm(formula = "GSPC ~ " + stock.name, data = bruuuh, family = sm.families.Gaussian()).fit_constrained(stock.name + " = 1")
                 print(reg_constrained.summary())
 
 

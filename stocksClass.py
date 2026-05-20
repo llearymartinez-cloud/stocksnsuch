@@ -6,6 +6,7 @@ import numpy as np
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import patsy
+import re
 print(patsy.__version__)
 
 complete_stocks = pd.read_csv("out.csv").set_index("Date")
@@ -22,7 +23,7 @@ class indexPredictor:
             self.interval = interval
 
         def mToString(self):
-            return ("Index: " + self.index + "\nExplanatory stocks: " + " ".join(self.explanatoryStocks.to_list()) +
+            return ("Index: " + self.index + "\nExplanatory stocks: " + " ".join(self.explanatoryStocks) +
                    "\nExplanatory betas: " + np.array2string(self.explanatoryBetas))
 
     #Note: Stocks will include indexes such as S&P. stockIndexData is entirely static, only ever read
@@ -83,7 +84,7 @@ class indexPredictor:
             explanatory_betas = best_beta
             stock_diff_logs.drop(best_stock, axis = 1)
 
-        return self.indexPredictorModel(index, best_explanatory.columns, explanatory_betas, interval)
+        return self.indexPredictorModel(index, best_explanatory.columns.to_list(), explanatory_betas, interval)
 
     def buildConstrainedPredictor(self, index, stocks, number, interval = None, allStocks = False):
 
@@ -95,49 +96,78 @@ class indexPredictor:
         
         index_raw_data = self._indexData.get(index)
         index_diff_logs = (index_raw_data.shift(-1).apply(np.log) - index_raw_data.shift(1).apply(np.log))[1:-1]
-        index_diff_logs.name = "GSPC"
         
         if (interval != None):
             stock_diff_logs = stock_diff_logs.loc[interval]
             index_diff_logs = index_diff_logs.loc[interval]
 
-        best_explanatory = pd.DataFrame()
-        explanatory_betas = []
+        best_explanatory = []
+
+        # The constrained GLM thing doesn't like special characters
+        cleaned_index = re.sub(r'[^a-zA-Z0-9]', '', index)
+        index_diff_logs.name = cleaned_index
+
+        temp_columns = stock_diff_logs.columns.to_list()
+
+        for j in range(len(temp_columns)):
+            temp_columns[j] = re.sub(r'[^a-zA-Z0-9]', '', temp_columns[j])
+        
+        stock_diff_logs.columns = temp_columns
+
+        combined_data = pd.concat([stock_diff_logs, index_diff_logs], axis = 1)
 
         for n in range(number):
 
             print(n)
 
-            best_r2 = -1
+            best_r2 = -10000
             best_beta = 0
             best_stock = ""
 
             for stock_ in stock_diff_logs:
+                
+                if n == 0:
+                    new_model = sklearn.linear_model.LinearRegression()
+                    new_model.intercept_ = 0
+                    new_model.coef_ = np.array([1])
 
-                stock = stock_diff_logs.get(stock_)
+                    r2 = sklearn.metrics.r2_score(index_diff_logs, new_model.predict(pd.DataFrame(stock_diff_logs.get(stock_))))
+                    
+                    if r2 > best_r2:
+                        best_r2 = r2
+                        best_beta = 1
+                        best_stock = stock_
+                    
+                else:
 
-                bruuuh = pd.concat([index_diff_logs, stock], axis = 1)
-                print(bruuuh)
-                # reg = sklearn.linear_model.LinearRegression(fit_intercept = False)
-                # reg.fit(pd.concat([best_explanatory, stock], axis = 1), index_diff_logs)
-                print(index + ' ~ ' + stock.name)
-                print(type(index))
-                reg_constrained = smf.glm(formula = "GSPC ~ " + stock.name, data = bruuuh, family = sm.families.Gaussian()).fit_constrained(stock.name + " = 1")
-                print(reg_constrained.summary())
+                    if stock_ not in best_explanatory:
+                        formula_ = cleaned_index + " ~ " + stock_
+                        constraint_formula = stock_
 
+                        for explanatory in best_explanatory:
+                            formula_ = formula_ + " + " + explanatory
+                            constraint_formula = constraint_formula + " + " + explanatory
 
-                # r2 = sklearn.metrics.r2_score(index_diff_logs, reg.predict(pd.concat([best_explanatory, stock], axis = 1)))
+                        formula_ = formula_ + " - 1"
+                        constraint_formula = constraint_formula + " = 1"
 
-                if r2 > best_r2:
-                    best_r2 = r2
-                    best_beta = reg.coef_
-                    best_stock = stock_
+                        print(formula_)
 
-            best_explanatory = pd.concat([best_explanatory, stock_diff_logs.get(best_stock)], axis = 1)
+                        reg_constrained = smf.glm(formula = formula_, data = combined_data, family = sm.families.Gaussian()).fit_constrained(constraint_formula)
+                        print(reg_constrained.summary())
+
+                        r2 = reg_constrained.pseudo_rsquared()
+
+                        if r2 > best_r2:
+                            best_r2 = r2
+                            best_beta = np.array(reg_constrained.params)
+                            best_stock = stock_
+
+            best_explanatory.append(best_stock)
             explanatory_betas = best_beta
-            stock_diff_logs.drop(best_stock, axis = 1)
+            print(best_r2)
 
-        return self.indexPredictorModel(index, best_explanatory.columns, explanatory_betas, interval)
+        return self.indexPredictorModel(index, best_explanatory, explanatory_betas, interval)
 
     # def modelQualityOfFit(self, model, interval = None):
 
@@ -169,29 +199,36 @@ class indexPredictor:
     def graphExample(self, model):
 
         stock_raw_data = self._stockData.get(model.explanatoryStocks)
-        ratios = model.explanatoryBetas/np.sum(model.explanatoryBetas)
-        num_purchased = (1000*ratios)/stock_raw_data.head(1)
+        print(stock_raw_data)
+        num_purchased = (1000*model.explanatoryBetas)/stock_raw_data.head(1)
+        print(num_purchased)
 
         index_raw_data = self._indexData.get(model.index)
-        index_num_purchased = 1000/index_raw_data.head(1)
-
-
-
         print(index_raw_data)
+        index_num_purchased = 1000/index_raw_data.head(1)
         print(index_num_purchased)
 
-        print(stock_raw_data)
-        print(num_purchased)
-        print(stock_raw_data*num_purchased.to_numpy())
-        print((stock_raw_data*num_purchased.to_numpy()).sum(axis=1))
+        print(stock_raw_data.iloc[-1])
+        print(stock_raw_data.iloc[-1] * num_purchased)
 
-        print((index_raw_data*index_num_purchased.to_numpy()).rename("SnP"))
-        print(pd.merge(((stock_raw_data*num_purchased.to_numpy()).sum(axis=1)).rename("Stocks"), (index_raw_data*index_num_purchased.to_numpy()).rename("SnP"), on=["Date"]))
+
+        # print(index_raw_data)
+        # print(index_num_purchased)
+
+        # print(stock_raw_data)
+        # print(num_purchased)
+        # print(stock_raw_data*num_purchased.to_numpy())
+        # print((stock_raw_data*num_purchased.to_numpy()).sum(axis=1))
+
+        # print((index_raw_data*index_num_purchased.to_numpy()).rename("SnP"))
+        # print(pd.merge(((stock_raw_data*num_purchased.to_numpy()).sum(axis=1)).rename("Stocks"), (index_raw_data*index_num_purchased.to_numpy()).rename("SnP"), on=["Date"]))
         # (stock_raw_data*num_purchased.to_numpy()).sum(axis=1).plot()
 
         # plt.show()
 
 
 temp = indexPredictor(0,0, tester=True)
-bruh = temp.buildConstrainedPredictor("^GSPC",0,3,allStocks=True)
+#bruh = temp.buildConstrainedPredictor("^GSPC",0,3,allStocks=True)
+bruh = temp.indexPredictorModel("^GSPC", ["BRK-B", "MSFT", "APH"], np.array([0.24381594,  0.4359183,  0.32026576]), None)
 print(bruh.mToString())
+temp.graphExample(bruh)
